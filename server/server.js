@@ -34,10 +34,11 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://127.0.0.1:5173",
-    ],
+    origin: (origin, callback) => {
+      // Allow all origins (development localhost and production deployment URLs)
+      callback(null, true);
+    },
+    credentials: true,
     methods: [
       "GET",
       "POST",
@@ -64,6 +65,37 @@ app.get("/", (req, res) => {
 });
 
 // =====================================================
+// MONGODB CONNECTION & SERVERLESS SETUP
+// =====================================================
+
+let isConnected = false;
+
+const connectDB = async () => {
+  if (isConnected || mongoose.connection.readyState >= 1) {
+    return;
+  }
+
+  if (!process.env.MONGODB_URI) {
+    console.warn("MONGODB_URI is not set in environment variables.");
+    return;
+  }
+
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    isConnected = true;
+    console.log("MongoDB connected successfully.");
+  } catch (error) {
+    console.error("MongoDB connection failed:", error);
+  }
+};
+
+// Middleware to ensure DB is connected before processing requests
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
+
+// =====================================================
 // ROUTES
 // =====================================================
 
@@ -80,28 +112,15 @@ app.use("/api/voice", voiceRoutes);
 
 app.use("/api/doctors", doctorRoutes);
 
-// =====================================================
-// MONGODB CONNECTION
-// =====================================================
-
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log(
-      "MongoDB connected successfully."
-    );
-
+// Only start the HTTP listener when running standalone (e.g. locally)
+if (!process.env.VERCEL) {
+  connectDB().then(() => {
     app.listen(PORT, () => {
       console.log(
         `SmartCare backend running on http://localhost:${PORT}`
       );
     });
-  })
-  .catch((error) => {
-    console.error(
-      "MongoDB connection failed:",
-      error
-    );
-
-    process.exit(1);
   });
+}
+
+module.exports = app;
