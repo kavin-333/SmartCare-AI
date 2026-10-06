@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci --prefix server
+
+      - name: Lint backend entrypoints
+        run: npx eslint server/server.js server/config/jwtSecret.js server/middleware/authMiddleware.js server/routes/authRoutes.js
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Check backend JavaScript syntax
+        run: find server -path server/node_modules -prune -o -name '*.js' -print0 | xargs -0 -n1 node --check

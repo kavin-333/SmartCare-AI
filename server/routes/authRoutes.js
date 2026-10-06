@@ -3,11 +3,9 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const Patient = require("../models/Patient");
+const JWT_SECRET = require("../config/jwtSecret");
 
 const router = express.Router();
-
-const JWT_SECRET =
-  process.env.JWT_SECRET || "smartcare-development-secret";
 
 // =====================================================
 // PHONE NUMBER NORMALIZATION

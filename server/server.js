@@ -35,10 +35,20 @@ app.use(express.urlencoded({ extended: false }));
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow all origins (development localhost and production deployment URLs)
-      callback(null, true);
+      const configuredOrigins = (process.env.CORS_ORIGINS || "")
+        .split(",")
+        .map((allowedOrigin) => allowedOrigin.trim())
+        .filter(Boolean);
+      const allowedOrigins =
+        configuredOrigins.length > 0
+          ? configuredOrigins
+          : process.env.NODE_ENV === "production"
+            ? []
+            : ["http://localhost:5173", "http://127.0.0.1:5173"];
+
+      callback(null, !origin || allowedOrigins.includes(origin));
     },
-    credentials: true,
+    credentials: false,
     methods: [
       "GET",
       "POST",

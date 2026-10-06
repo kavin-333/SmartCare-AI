@@ -1,5 +1,6 @@
 ﻿{
   "version": 2,
+  "installCommand": "npm ci && npm ci --prefix server",
   "builds": [
     {
       "src": "server/server.js",
@@ -21,6 +22,25 @@
     {
       "src": "/(.*)",
       "dest": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
     }
   ]
 }
