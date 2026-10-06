@@ -64,6 +64,12 @@ function Auth({ onAuthenticated }) {
     setLoading(true);
 
     try {
+      if (!API_BASE_URL && window.location.hostname !== "127.0.0.1" && window.location.hostname !== "localhost") {
+        throw new Error(
+          "Backend API URL is not configured. Please set VITE_API_BASE_URL in your Vercel project Settings → Environment Variables, then redeploy."
+        );
+      }
+
       const endpoint = isLogin
         ? "/api/auth/login"
         : "/api/auth/register";
@@ -98,14 +104,20 @@ function Auth({ onAuthenticated }) {
       const data = await readResponse(response);
 
       if (!response.ok) {
-        const message =
-          typeof data === "object" && data !== null
-            ? data.message
+        let message = "";
+        if (typeof data === "object" && data !== null) {
+          message = data.message || (typeof data.error === "string" ? data.error : data.error?.message);
+        } else if (typeof data === "string" && data.trim()) {
+          message = data.startsWith("<")
+            ? `Server returned HTTP ${response.status} (${response.statusText || "Error"})`
             : data;
+        }
 
-        throw new Error(
-          message || "Something went wrong."
-        );
+        if (!message) {
+          message = `Server returned HTTP ${response.status} (${response.statusText || "Request failed"})`;
+        }
+
+        throw new Error(message);
       }
 
       // =================================================
