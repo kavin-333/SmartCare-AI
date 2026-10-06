@@ -123,6 +123,7 @@ app.get("/", async (req, res) => {
     message: "SmartCare backend is running",
     port: PORT,
     database: isDbReady ? "connected" : "disconnected",
+    dbName: mongoose.connection.name,
     ...(isDbReady ? {} : { dbError: lastDbError }),
   });
 });

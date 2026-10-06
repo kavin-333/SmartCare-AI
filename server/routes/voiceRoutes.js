@@ -12,7 +12,18 @@ const authenticateToken = require("../middleware/authMiddleware");
 const Appointment = require("../models/Appointment");
 const VoiceResponse = require("twilio").twiml.VoiceResponse;
 
-const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/+$/, "");
+function getPublicBaseUrl(req) {
+  const envUrl = (process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (envUrl && !envUrl.includes("ngrok-free.dev") && !envUrl.includes("ngrok.io")) {
+    return envUrl;
+  }
+  if (req) {
+    const proto = req.headers["x-forwarded-proto"] || req.protocol || "https";
+    const host = req.headers["x-forwarded-host"] || req.headers.host;
+    if (host) return `${proto}://${host}`;
+  }
+  return "https://smart-care-ai-a33e.vercel.app";
+}
 
 const TIME_SLOTS = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
 const SUPPORTED_LANGUAGES = ["en-IN", "ta-IN", "hi-IN", "te-IN", "ml-IN", "kn-IN"];
@@ -126,10 +137,10 @@ function getText(appointment) {
   return LANGUAGE_TEXT[language] || LANGUAGE_TEXT["en-IN"];
 }
 
-function addSpeechGather(response, appointmentId, appointment, prompt) {
-  if (!PUBLIC_BASE_URL) throw new Error("PUBLIC_BASE_URL is not configured.");
+function addSpeechGather(response, appointmentId, appointment, prompt, req) {
+  const baseUrl = getPublicBaseUrl(req);
   const language = getLanguage(appointment);
-  const action = `${PUBLIC_BASE_URL}/api/voice/handle-response?appointmentId=${encodeURIComponent(appointmentId)}`;
+  const action = `${baseUrl}/api/voice/handle-response?appointmentId=${encodeURIComponent(appointmentId)}`;
   const gather = response.gather({ input: "speech", action, method: "POST", language, speechTimeout: "auto", timeout: 5, actionOnEmptyResult: true });
   gather.say({ language }, prompt);
   return gather;
@@ -200,16 +211,17 @@ router.post("/appointment-call", authenticateToken, async (req, res) => {
 });
 
 // =====================================================
-// TWIML — POST /api/voice/twiml
+// TWIML — ALL (GET/POST) /api/voice/twiml
 // =====================================================
-router.post("/twiml", async (req, res) => {
+router.all("/twiml", async (req, res) => {
   const response = new VoiceResponse();
   try {
     const appointmentId = req.query.appointmentId || req.body.appointmentId;
     console.log("TwiML request for appointmentId:", appointmentId);
 
     if (!appointmentId || !mongoose.Types.ObjectId.isValid(appointmentId)) {
-      response.say("Sorry, there was a problem with your appointment. Goodbye.");
+      // Support test calls or calls without an appointmentId
+      response.say({ language: "en-IN" }, "Hello! This is SmartCare AI test call. Your voice setup is working successfully. Goodbye.");
       response.hangup();
       res.type("text/xml");
       return res.send(response.toString());
@@ -255,9 +267,9 @@ router.post("/twiml", async (req, res) => {
 });
 
 // =====================================================
-// HANDLE SPEECH RESPONSE — POST /api/voice/handle-response
+// HANDLE SPEECH RESPONSE — ALL (GET/POST) /api/voice/handle-response
 // =====================================================
-router.post("/handle-response", async (req, res) => {
+router.all("/handle-response", async (req, res) => {
   const response = new VoiceResponse();
   try {
     const appointmentId = req.query.appointmentId || req.body.appointmentId;

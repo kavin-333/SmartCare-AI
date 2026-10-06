@@ -14,7 +14,14 @@ function getTwilioPhoneNumber() {
 }
 
 function getPublicBaseUrl() {
-  return (process.env.PUBLIC_BASE_URL || "").replace(/\/+$/, "");
+  const url = (process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
+  // If no PUBLIC_BASE_URL is set, or if it still points to an inactive ngrok URL in production
+  if (!url || url.includes("ngrok-free.dev") || url.includes("ngrok.io")) {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      return "https://smart-care-ai-a33e.vercel.app";
+    }
+  }
+  return url || "https://smart-care-ai-a33e.vercel.app";
 }
 
 // =====================================================
