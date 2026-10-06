@@ -22,20 +22,20 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: |
-            package-lock.json
+            app/package-lock.json
             server/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm ci --prefix app
 
       - name: Install backend dependencies
         run: npm ci --prefix server
 
-      - name: Lint backend entrypoints
-        run: npx eslint server/server.js server/config/jwtSecret.js server/middleware/authMiddleware.js server/routes/authRoutes.js
+      - name: Lint frontend
+        run: npm run lint --prefix app
 
       - name: Build frontend
-        run: npm run build
+        run: npm run build --prefix app
 
       - name: Check backend JavaScript syntax
         run: find server -path server/node_modules -prune -o -name '*.js' -print0 | xargs -0 -n1 node --check

@@ -8,13 +8,13 @@ import "./App.css";
 
 const SMARTCARE_AI_PHONE = "+17372212163";
 
-const API_BASE_URL =
-
-  window.location.hostname === "127.0.0.1"
-
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  (window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:8000"
-
-    : "http://localhost:8000";
+    : "http://localhost:8000")
+).replace(/\/$/, "");
 
 async function apiFetch(endpoint, options = {}) {
 

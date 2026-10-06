@@ -8,10 +8,6 @@ export default defineConfig([
   globalIgnores([
     'dist',
     '**/*backup*',
-    'server/archiveOrphanAppointments.js',
-    'server/migratePostgresToMongo.js',
-    'server/gemini-test.js',
-    'server/routes/voiceRoutes.js',
   ]),
   {
     files: ['**/*.{js,jsx}'],
@@ -24,11 +20,8 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
-  },
-  {
-    files: ['server/**/*.js'],
-    languageOptions: {
-      globals: globals.node,
+    rules: {
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
   {

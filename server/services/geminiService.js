@@ -64,7 +64,7 @@ function parseLocalDate(speech) {
   }
 
   // DD/MM/YYYY or DD-MM-YYYY
-  const dmyMatch = s.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
+  const dmyMatch = s.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
   if (dmyMatch) {
     return dmyMatch[3] + "-" + dmyMatch[2].padStart(2,"0") + "-" + dmyMatch[1].padStart(2,"0");
   }

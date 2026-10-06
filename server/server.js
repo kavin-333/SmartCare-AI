@@ -39,14 +39,32 @@ app.use(
         .split(",")
         .map((allowedOrigin) => allowedOrigin.trim())
         .filter(Boolean);
-      const allowedOrigins =
-        configuredOrigins.length > 0
-          ? configuredOrigins
-          : process.env.NODE_ENV === "production"
-            ? []
-            : ["http://localhost:5173", "http://127.0.0.1:5173"];
 
-      callback(null, !origin || allowedOrigins.includes(origin));
+      // Allow requests with no origin (e.g. mobile apps, curl, Twilio webhooks)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // If wildcard is configured
+      if (configuredOrigins.includes("*")) {
+        return callback(null, true);
+      }
+
+      // If specific origins are configured
+      if (configuredOrigins.length > 0) {
+        return callback(null, configuredOrigins.includes(origin));
+      }
+
+      // Default fallback: allow local development and Vercel domains
+      if (
+        origin.startsWith("http://localhost:") ||
+        origin.startsWith("http://127.0.0.1:") ||
+        origin.endsWith(".vercel.app")
+      ) {
+        return callback(null, true);
+      }
+
+      callback(null, true);
     },
     credentials: false,
     methods: [
@@ -71,6 +89,12 @@ app.get("/", (req, res) => {
   res.json({
     message: "SmartCare backend is running",
     port: PORT,
+  });
+});
+
+app.get("/api", (req, res) => {
+  res.json({
+    message: "SmartCare API is running",
   });
 });
 

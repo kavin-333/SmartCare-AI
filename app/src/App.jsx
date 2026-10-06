@@ -6,12 +6,13 @@ import DoctorCard from "./components/DoctorCard";
 
 import "./App.css";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL !== undefined
-    ? import.meta.env.VITE_API_URL
-    : window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost"
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost"
     ? "http://localhost:8000"
-    : "";
+    : "")
+).replace(/\/$/, "");
 
 async function apiFetch(endpoint, options = {}) {
 

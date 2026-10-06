@@ -1,50 +1,117 @@
 # SmartCare AI
 
-SmartCare AI is a React/Vite frontend with an Express API, MongoDB persistence,
-and optional Gemini and Twilio integrations.
+SmartCare AI is a full-stack healthcare assistance platform featuring a React + Vite frontend, Express API backend, MongoDB persistence, and Gemini AI & Twilio voice integrations.
 
-## Local development
+## Repository Architecture
 
-1. Install the frontend dependencies with `npm ci`.
-2. Install the backend dependencies with `npm ci --prefix server`.
-3. Copy `server/.env.example` to `server/.env` and configure the required values.
-   Generate a JWT secret with:
+```text
+SmartCare-AI/
+├── app/        ← React + Vite frontend
+│   ├── src/
+│   ├── public/
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.js
+│   └── vercel.json
+│
+└── server/     ← Express backend
+    ├── routes/
+    ├── services/
+    ├── models/
+    ├── server.js
+    ├── package.json
+    └── vercel.json
+```
 
+---
+
+## Local Development
+
+1. **Install dependencies**:
    ```sh
-   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+   npm ci --prefix app
+   npm ci --prefix server
    ```
 
-4. Start the API with `npm run dev --prefix server` and the frontend with
-   `npm run dev`.
+2. **Configure backend environment**:
+   Copy `server/.env.example` to `server/.env` and provide your credentials:
+   - Generate a strong JWT secret:
+     ```sh
+     node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+     ```
+   - Provide your `MONGODB_URI` (local MongoDB or MongoDB Atlas)
 
-Never commit `.env` files or place backend credentials in `VITE_*` variables;
-Vite embeds those values in public browser assets.
+3. **Start local servers**:
+   - Backend (Port 8000):
+     ```sh
+     npm run dev --prefix server
+     ```
+   - Frontend (Port 5173):
+     ```sh
+     npm run dev --prefix app
+     ```
 
-## Deploy to Vercel
+---
 
-Import this GitHub repository into Vercel and keep the project root set to the
-repository root. `vercel.json` builds the frontend and routes `/api/*` to the
-Express function. Its install command installs both the root and server
-dependencies. GitHub Actions runs the production build and backend lint/syntax
-checks on pushes and pull requests; Vercel's GitHub integration handles preview
-and production deployments.
+## Deploy to Vercel (Two Separate Projects)
 
-Add these values under the Vercel project's **Settings → Environment Variables**
-for the environments that need them:
+Deploy the frontend and backend as two independent Vercel projects from this single repository:
 
-- `MONGODB_URI` — production MongoDB connection string, restricted to the
-  application's database and network access.
-- `JWT_SECRET` — a unique, randomly generated secret of at least 32 bytes. Do
-  not reuse the example value or a local-development secret.
-- `GEMINI_API_KEY` — required only for Gemini-powered features.
-- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER` — required
-  only for Twilio features.
-- `PUBLIC_BASE_URL` — the deployed HTTPS URL when Twilio webhooks are enabled.
-- `CORS_ORIGINS` — comma-separated exact origins only when the API is called
-  cross-origin. Same-origin Vercel deployments do not need this variable.
+```text
+                 USER
+                  │
+                  ▼
+        React/Vite Frontend
+        smartcare-ai.vercel.app  (Root Directory: app)
+                  │
+                  │ API requests
+                  ▼
+        Express Backend
+        smartcare-ai-server.vercel.app  (Root Directory: server)
+                  │
+       ┌──────────┼───────────┐
+       ▼          ▼           ▼
+    MongoDB     Gemini      Twilio
+```
 
-Set secrets in Vercel's environment settings, not in GitHub source, workflow
-files, or frontend `VITE_*` variables. Do not enable production traffic until
-the required database and integration secrets are configured. This application
-may process health information; use only infrastructure and operational
-controls appropriate for the data and applicable compliance obligations.
+### Step 1: Deploy Frontend (`smartcare-ai`)
+
+1. In Vercel, click **Add New... → Project** and select this repository.
+2. Select **app → Import single project**.
+3. Configure settings:
+   - **Project Name**: `smartcare-ai`
+   - **Root Directory**: `app`
+   - **Framework Preset**: `Vite` (auto-detected)
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+4. Add Environment Variable:
+   - `VITE_API_BASE_URL` = `https://your-backend-project.vercel.app` (your backend's Vercel URL once deployed)
+5. Click **Deploy**.
+
+### Step 2: Deploy Backend (`smartcare-ai-server`)
+
+1. In Vercel, click **Add New... → Project** and select the same repository.
+2. Select **server → Import single project**.
+3. Configure settings:
+   - **Project Name**: `smartcare-ai-server`
+   - **Root Directory**: `server`
+   - **Framework Preset**: `Other` (Node.js)
+4. Add Environment Variables under **Settings → Environment Variables**:
+   - `MONGODB_URI` — MongoDB Atlas connection string (`mongodb+srv://...`)
+   - `JWT_SECRET` — Random 32+ character secret key
+   - `CORS_ORIGINS` — `https://smartcare-ai.vercel.app` (your frontend Vercel URL)
+   - `GEMINI_API_KEY` — Google Gemini API key
+   - `GEMINI_MODEL` — `gemini-2.0-flash-lite` (or desired model)
+   - `TWILIO_ACCOUNT_SID` — Twilio account SID (optional)
+   - `TWILIO_AUTH_TOKEN` — Twilio auth token (optional)
+   - `TWILIO_PHONE_NUMBER` — Twilio phone number (optional)
+   - `PUBLIC_BASE_URL` — `https://smartcare-ai-server.vercel.app` (Twilio webhook callback base URL)
+5. Click **Deploy**.
+
+---
+
+## Security Notes
+
+- Never commit `.env` files or push secrets to GitHub.
+- Do not place sensitive secrets (database credentials, JWT secret, Gemini key, Twilio token) into the frontend `app/` or `VITE_*` variables.
+- Use MongoDB Atlas (cloud MongoDB) for production, as Vercel serverless cannot connect to `127.0.0.1:27017`.

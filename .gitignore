@@ -11,6 +11,8 @@ lerna-debug.log*
 .env
 .env.local
 .env.*.local
+app/.env
+app/.env.local
 server/.env
 server/.env.local
 
