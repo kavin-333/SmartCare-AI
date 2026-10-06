@@ -137,12 +137,20 @@ function getText(appointment) {
   return LANGUAGE_TEXT[language] || LANGUAGE_TEXT["en-IN"];
 }
 
+function sayWithVoice(target, text, language = "en-IN") {
+  try {
+    target.say({ voice: "Polly.Aditi", language }, text);
+  } catch (e) {
+    target.say(text);
+  }
+}
+
 function addSpeechGather(response, appointmentId, appointment, prompt, req) {
   const baseUrl = getPublicBaseUrl(req);
   const language = getLanguage(appointment);
   const action = `${baseUrl}/api/voice/handle-response?appointmentId=${encodeURIComponent(appointmentId)}`;
   const gather = response.gather({ input: "speech", action, method: "POST", language, speechTimeout: "auto", timeout: 5, actionOnEmptyResult: true });
-  gather.say({ language }, prompt);
+  sayWithVoice(gather, prompt, language);
   return gather;
 }
 
@@ -214,14 +222,15 @@ router.post("/appointment-call", authenticateToken, async (req, res) => {
 // TWIML — ALL (GET/POST) /api/voice/twiml
 // =====================================================
 router.all("/twiml", async (req, res) => {
-  const response = new VoiceResponse();
   try {
-    const appointmentId = req.query.appointmentId || req.body.appointmentId;
+    const appointmentId = req.query?.appointmentId || req.body?.appointmentId;
     console.log("TwiML request for appointmentId:", appointmentId);
+
+    const response = new VoiceResponse();
 
     if (!appointmentId || !mongoose.Types.ObjectId.isValid(appointmentId)) {
       // Support test calls or calls without an appointmentId
-      response.say({ language: "en-IN" }, "Hello! This is SmartCare AI test call. Your voice setup is working successfully. Goodbye.");
+      response.say({ voice: "Polly.Aditi", language: "en-IN" }, "Hello! This is SmartCare AI. Your voice call system is working properly. Goodbye.");
       response.hangup();
       res.type("text/xml");
       return res.send(response.toString());
@@ -229,7 +238,7 @@ router.all("/twiml", async (req, res) => {
 
     const appointment = await Appointment.findById(appointmentId).populate("patient").populate("doctor");
     if (!appointment) {
-      response.say("Sorry, your appointment could not be found. Goodbye.");
+      response.say({ voice: "Polly.Aditi", language: "en-IN" }, "Sorry, your appointment could not be found. Goodbye.");
       response.hangup();
       res.type("text/xml");
       return res.send(response.toString());
@@ -251,18 +260,19 @@ router.all("/twiml", async (req, res) => {
     appointment.voiceConversation = { active: true, step: "NONE", requestedDate: null, requestedTime: null, attempts: 0 };
     await appointment.save();
 
-    addSpeechGather(response, appointment._id.toString(), appointment, greeting);
-    response.say({ language }, "Sorry, I did not hear a response. Goodbye.");
+    addSpeechGather(response, appointment._id.toString(), appointment, greeting, req);
+    response.say({ voice: "Polly.Aditi", language }, "Sorry, I did not hear a response. Goodbye.");
     response.hangup();
 
     res.type("text/xml");
     return res.send(response.toString());
   } catch (error) {
     console.error("TwiML error:", error);
-    response.say("Sorry, SmartCare AI is temporarily unavailable. Please try again later.");
-    response.hangup();
+    const errRes = new VoiceResponse();
+    errRes.say(`Sorry, SmartCare AI encountered an issue: ${error.message}`);
+    errRes.hangup();
     res.type("text/xml");
-    return res.send(response.toString());
+    return res.send(errRes.toString());
   }
 });
 
@@ -272,8 +282,8 @@ router.all("/twiml", async (req, res) => {
 router.all("/handle-response", async (req, res) => {
   const response = new VoiceResponse();
   try {
-    const appointmentId = req.query.appointmentId || req.body.appointmentId;
-    const speechResult = req.body.SpeechResult || req.body.speechResult || req.query.SpeechResult || req.query.speechResult || "";
+    const appointmentId = req.query?.appointmentId || req.body?.appointmentId;
+    const speechResult = req.body?.SpeechResult || req.body?.speechResult || req.query?.SpeechResult || req.query?.speechResult || "";
 
     console.log("Handle response - appointmentId:", appointmentId);
     console.log("Handle response - SpeechResult:", speechResult);
@@ -312,7 +322,7 @@ router.all("/handle-response", async (req, res) => {
     if (intent === "CONFIRM") {
       appointment.status = "Confirmed";
       await appointment.save();
-      response.say({ language }, text.confirmed);
+      sayWithVoice(response, text.confirmed, language);
       response.hangup();
       res.type("text/xml");
       return res.send(response.toString());
@@ -322,7 +332,7 @@ router.all("/handle-response", async (req, res) => {
       appointment.status = "Cancelled";
       appointment.voiceConversation = { active: false, step: "NONE", requestedDate: null, requestedTime: null, attempts: 0 };
       await appointment.save();
-      response.say({ language }, text.cancelled);
+      sayWithVoice(response, text.cancelled, language);
       response.hangup();
       res.type("text/xml");
       return res.send(response.toString());
@@ -331,22 +341,22 @@ router.all("/handle-response", async (req, res) => {
     if (intent === "RESCHEDULE") {
       appointment.voiceConversation = { active: true, step: "WAITING_FOR_DATE", requestedDate: null, requestedTime: null, attempts: 0 };
       await appointment.save();
-      addSpeechGather(response, appointmentId, appointment, text.reschedule);
-      response.say({ language }, text.goodbye);
+      addSpeechGather(response, appointmentId, appointment, text.reschedule, req);
+      sayWithVoice(response, text.goodbye, language);
       response.hangup();
       res.type("text/xml");
       return res.send(response.toString());
     }
 
     // UNKNOWN
-    addSpeechGather(response, appointmentId, appointment, text.unknown);
-    response.say({ language }, text.goodbye);
+    addSpeechGather(response, appointmentId, appointment, text.unknown, req);
+    sayWithVoice(response, text.goodbye, language);
     response.hangup();
     res.type("text/xml");
     return res.send(response.toString());
   } catch (error) {
     console.error("Handle response error:", error);
-    response.say("Sorry, SmartCare AI encountered an error. Please try again later.");
+    sayWithVoice(response, "Sorry, SmartCare AI encountered an error. Please try again later.", "en-IN");
     response.hangup();
     res.type("text/xml");
     return res.send(response.toString());
@@ -364,7 +374,7 @@ async function handleRescheduleDate(res, response, appointment, speechResult, la
 
     if (!date) {
       addSpeechGather(response, appointmentId, appointment, text.invalidDate);
-      response.say({ language }, text.goodbye);
+      sayWithVoice(response, text.goodbye, language);
       response.hangup();
       res.type("text/xml");
       return res.send(response.toString());
@@ -375,13 +385,13 @@ async function handleRescheduleDate(res, response, appointment, speechResult, la
     await appointment.save();
 
     addSpeechGather(response, appointmentId, appointment, text.askTime);
-    response.say({ language }, text.goodbye);
+    sayWithVoice(response, text.goodbye, language);
     response.hangup();
     res.type("text/xml");
     return res.send(response.toString());
   } catch (error) {
     console.error("Reschedule date handler error:", error);
-    response.say({ language }, text.invalidDate);
+    sayWithVoice(response, text.invalidDate, language);
     response.hangup();
     res.type("text/xml");
     return res.send(response.toString());
@@ -399,7 +409,7 @@ async function handleRescheduleTime(res, response, appointment, speechResult, la
 
     if (!time || !TIME_SLOTS.includes(time)) {
       addSpeechGather(response, appointmentId, appointment, text.invalidTime);
-      response.say({ language }, text.goodbye);
+      sayWithVoice(response, text.goodbye, language);
       response.hangup();
       res.type("text/xml");
       return res.send(response.toString());
@@ -409,7 +419,7 @@ async function handleRescheduleTime(res, response, appointment, speechResult, la
     if (!requestedDate) {
       appointment.voiceConversation = { active: false, step: "NONE", requestedDate: null, requestedTime: null, attempts: 0 };
       await appointment.save();
-      response.say({ language }, text.invalidDate);
+      sayWithVoice(response, text.invalidDate, language);
       response.hangup();
       res.type("text/xml");
       return res.send(response.toString());
@@ -425,7 +435,7 @@ async function handleRescheduleTime(res, response, appointment, speechResult, la
 
     if (conflict) {
       addSpeechGather(response, appointmentId, appointment, text.unavailableTime);
-      response.say({ language }, text.goodbye);
+      sayWithVoice(response, text.goodbye, language);
       response.hangup();
       res.type("text/xml");
       return res.send(response.toString());
@@ -437,13 +447,13 @@ async function handleRescheduleTime(res, response, appointment, speechResult, la
     appointment.voiceConversation = { active: false, step: "NONE", requestedDate: null, requestedTime: null, attempts: 0 };
     await appointment.save();
 
-    response.say({ language }, text.successfulReschedule);
+    sayWithVoice(response, text.successfulReschedule, language);
     response.hangup();
     res.type("text/xml");
     return res.send(response.toString());
   } catch (error) {
     console.error("Reschedule time handler error:", error);
-    response.say({ language }, text.invalidTime);
+    sayWithVoice(response, text.invalidTime, language);
     response.hangup();
     res.type("text/xml");
     return res.send(response.toString());
