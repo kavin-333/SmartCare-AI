@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 
 const Patient = require("../models/Patient");
 const JWT_SECRET = require("../config/jwtSecret");
@@ -27,6 +28,13 @@ function isValidPhoneNumber(phoneNumber) {
 
 router.post("/register", async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        message:
+          "Database connection unavailable. Please ensure MONGODB_URI is set to a valid MongoDB Atlas URI and Network Access allows 0.0.0.0/0.",
+      });
+    }
+
     const { name, email, password, phoneNumber } = req.body;
 
     if (!name || !email || !password || !phoneNumber) {
@@ -121,7 +129,7 @@ router.post("/register", async (req, res) => {
     }
 
     return res.status(500).json({
-      message: "Failed to create account",
+      message: `Failed to create account: ${error.message || "Unknown error"}`,
     });
   }
 });
@@ -132,6 +140,13 @@ router.post("/register", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        message:
+          "Database connection unavailable. Please ensure MONGODB_URI is set to a valid MongoDB Atlas URI and Network Access allows 0.0.0.0/0.",
+      });
+    }
+
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -183,7 +198,7 @@ router.post("/login", async (req, res) => {
     console.error("Login error:", error);
 
     return res.status(500).json({
-      message: "Failed to login",
+      message: `Failed to login: ${error.message || "Unknown error"}`,
     });
   }
 });

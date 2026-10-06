@@ -82,27 +82,11 @@ app.use(
 );
 
 // =====================================================
-// HEALTH CHECK
-// =====================================================
-
-app.get("/", (req, res) => {
-  res.json({
-    message: "SmartCare backend is running",
-    port: PORT,
-  });
-});
-
-app.get("/api", (req, res) => {
-  res.json({
-    message: "SmartCare API is running",
-  });
-});
-
-// =====================================================
 // MONGODB CONNECTION & SERVERLESS SETUP
 // =====================================================
 
 let isConnected = false;
+let lastDbError = null;
 
 const connectDB = async () => {
   if (isConnected || mongoose.connection.readyState >= 1) {
@@ -110,18 +94,48 @@ const connectDB = async () => {
   }
 
   if (!process.env.MONGODB_URI) {
-    console.warn("MONGODB_URI is not set in environment variables.");
+    lastDbError = "MONGODB_URI is not set in environment variables";
+    console.warn(lastDbError);
     return;
   }
 
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+    });
     isConnected = true;
+    lastDbError = null;
     console.log("MongoDB connected successfully.");
   } catch (error) {
+    lastDbError = error.message;
     console.error("MongoDB connection failed:", error);
   }
 };
+
+// =====================================================
+// HEALTH CHECK
+// =====================================================
+
+app.get("/", async (req, res) => {
+  await connectDB();
+  const isDbReady = mongoose.connection.readyState === 1;
+  res.json({
+    message: "SmartCare backend is running",
+    port: PORT,
+    database: isDbReady ? "connected" : "disconnected",
+    ...(isDbReady ? {} : { dbError: lastDbError }),
+  });
+});
+
+app.get("/api", async (req, res) => {
+  await connectDB();
+  const isDbReady = mongoose.connection.readyState === 1;
+  res.json({
+    message: "SmartCare API is running",
+    database: isDbReady ? "connected" : "disconnected",
+    ...(isDbReady ? {} : { dbError: lastDbError }),
+  });
+});
 
 // Middleware to ensure DB is connected before processing requests
 app.use(async (req, res, next) => {
