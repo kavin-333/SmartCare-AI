@@ -1,4 +1,5 @@
 const twilio = require("twilio");
+const { getPublicBaseUrl } = require("../utils/publicBaseUrl");
 
 function getClient() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -11,14 +12,6 @@ function getClient() {
 
 function getTwilioPhoneNumber() {
   return process.env.TWILIO_PHONE_NUMBER;
-}
-
-function getPublicBaseUrl() {
-  const url = (process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
-  if (!url || url.includes("ngrok-free.dev") || url.includes("ngrok.io") || url.includes("localhost") || url.includes("127.0.0.1")) {
-    return "https://smart-care-ai-a33e.vercel.app";
-  }
-  return url;
 }
 
 // =====================================================
@@ -71,6 +64,7 @@ async function makeAppointmentCall(to, appointmentId) {
   const twilioPhoneNumber = getTwilioPhoneNumber();
 
   const twimlUrl = `${baseUrl}/api/voice/twiml?appointmentId=${encodeURIComponent(appointmentId)}`;
+  console.log("Initiating appointment call with TwiML URL:", twimlUrl);
 
   // Twilio Free Trial ONLY allows from, to, and url (no statusCallback, no inline twiml)
   const call = await client.calls.create({

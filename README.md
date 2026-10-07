@@ -62,51 +62,53 @@ Deploy the frontend and backend as two independent Vercel projects from this sin
                   │
                   ▼
         React/Vite Frontend
-        smartcare-ai.vercel.app  (Root Directory: app)
+        smart-care-ai-is9e.vercel.app  (Root Directory: app)
                   │
                   │ API requests
                   ▼
         Express Backend
-        smartcare-ai-server.vercel.app  (Root Directory: server)
+        smart-care-ai-a33e.vercel.app  (Root Directory: server)
                   │
        ┌──────────┼───────────┐
        ▼          ▼           ▼
     MongoDB     Gemini      Twilio
 ```
 
-### Step 1: Deploy Frontend (`smartcare-ai`)
+### Step 1: Deploy Frontend (`smart-care-ai-is9e`)
 
 1. In Vercel, click **Add New... → Project** and select this repository.
 2. Select **app → Import single project**.
 3. Configure settings:
-   - **Project Name**: `smartcare-ai`
+   - **Project Name**: `smart-care-ai-is9e` (or your frontend project name)
    - **Root Directory**: `app`
    - **Framework Preset**: `Vite` (auto-detected)
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
 4. Add Environment Variable:
-   - `VITE_API_BASE_URL` = `https://your-backend-project.vercel.app` (your backend's Vercel URL once deployed)
+   - `VITE_API_BASE_URL` = `https://smart-care-ai-a33e.vercel.app` (your live backend Vercel URL)
 5. Click **Deploy**.
 
-### Step 2: Deploy Backend (`smartcare-ai-server`)
+### Step 2: Deploy Backend (`smart-care-ai-a33e`)
 
 1. In Vercel, click **Add New... → Project** and select the same repository.
 2. Select **server → Import single project**.
 3. Configure settings:
-   - **Project Name**: `smartcare-ai-server`
+   - **Project Name**: `smart-care-ai-a33e` (or your backend project name)
    - **Root Directory**: `server`
    - **Framework Preset**: `Other` (Node.js)
 4. Add Environment Variables under **Settings → Environment Variables**:
    - `MONGODB_URI` — MongoDB Atlas connection string (`mongodb+srv://...`)
    - `JWT_SECRET` — Random 32+ character secret key
-   - `CORS_ORIGINS` — `https://smartcare-ai.vercel.app` (your frontend Vercel URL)
+   - `CORS_ORIGINS` — `https://smart-care-ai-is9e.vercel.app` (your frontend Vercel URL)
    - `GEMINI_API_KEY` — Google Gemini API key
    - `GEMINI_MODEL` — `gemini-2.0-flash-lite` (or desired model)
    - `TWILIO_ACCOUNT_SID` — Twilio account SID (optional)
    - `TWILIO_AUTH_TOKEN` — Twilio auth token (optional)
    - `TWILIO_PHONE_NUMBER` — Twilio phone number (optional)
-   - `PUBLIC_BASE_URL` — `https://smartcare-ai-server.vercel.app` (Twilio webhook callback base URL)
+   - `PUBLIC_BASE_URL` — `https://smart-care-ai-a33e.vercel.app` (Twilio webhook callback base URL — must match the live backend)
 5. Click **Deploy**.
+
+**Voice assistant note:** Twilio dials the patient, then HTTP-fetches `{PUBLIC_BASE_URL}/api/voice/twiml`. If `PUBLIC_BASE_URL` points at a dead or wrong host, the call connects but you hear a TwiML / application error. Always use the live backend domain above.
 
 ---
 

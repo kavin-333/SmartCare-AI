@@ -11,19 +11,7 @@ const { analyzeVoiceIntent, extractRescheduleDate, extractRescheduleTime } = req
 const authenticateToken = require("../middleware/authMiddleware");
 const Appointment = require("../models/Appointment");
 const VoiceResponse = require("twilio").twiml.VoiceResponse;
-
-function getPublicBaseUrl(req) {
-  const envUrl = (process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
-  if (envUrl && !envUrl.includes("ngrok-free.dev") && !envUrl.includes("ngrok.io")) {
-    return envUrl;
-  }
-  if (req) {
-    const proto = req.headers["x-forwarded-proto"] || req.protocol || "https";
-    const host = req.headers["x-forwarded-host"] || req.headers.host;
-    if (host) return `${proto}://${host}`;
-  }
-  return "https://smart-care-ai-a33e.vercel.app";
-}
+const { getPublicBaseUrl } = require("../utils/publicBaseUrl");
 
 const TIME_SLOTS = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
 const SUPPORTED_LANGUAGES = ["en-IN", "ta-IN", "hi-IN", "te-IN", "ml-IN", "kn-IN"];
@@ -201,11 +189,7 @@ router.post("/appointment-call", authenticateToken, async (req, res) => {
 
     appointment.voiceConversation = { active: true, step: "NONE", requestedDate: null, requestedTime: null, attempts: 0 };
 
-    const twimlResponse = new VoiceResponse();
-    addSpeechGather(twimlResponse, appointment._id.toString(), appointment, greeting);
-    twimlResponse.say({ language }, "Sorry, I did not hear a response. Goodbye.");
-    twimlResponse.hangup();
-
+    // TwiML is served when Twilio fetches /api/voice/twiml — do not build unused XML here.
     const call = await makeAppointmentCall(appointment.phoneNumber, appointment._id.toString());
 
     appointment.voiceCall = { sid: call.sid, status: call.status, lastAttemptAt: new Date() };
@@ -309,10 +293,10 @@ router.all("/handle-response", async (req, res) => {
 
     // Handle reschedule sub-steps first
     if (step === "WAITING_FOR_DATE") {
-      return await handleRescheduleDate(res, response, appointment, speechResult, language, text);
+      return await handleRescheduleDate(req, res, response, appointment, speechResult, language, text);
     }
     if (step === "WAITING_FOR_TIME") {
-      return await handleRescheduleTime(res, response, appointment, speechResult, language, text);
+      return await handleRescheduleTime(req, res, response, appointment, speechResult, language, text);
     }
 
     // Primary intent detection
@@ -366,14 +350,14 @@ router.all("/handle-response", async (req, res) => {
 // =====================================================
 // RESCHEDULE DATE HANDLER
 // =====================================================
-async function handleRescheduleDate(res, response, appointment, speechResult, language, text) {
+async function handleRescheduleDate(req, res, response, appointment, speechResult, language, text) {
   const appointmentId = appointment._id.toString();
   try {
     const { date } = await extractRescheduleDate(speechResult);
     console.log("Extracted reschedule date:", date);
 
     if (!date) {
-      addSpeechGather(response, appointmentId, appointment, text.invalidDate);
+      addSpeechGather(response, appointmentId, appointment, text.invalidDate, req);
       sayWithVoice(response, text.goodbye, language);
       response.hangup();
       res.type("text/xml");
@@ -384,7 +368,7 @@ async function handleRescheduleDate(res, response, appointment, speechResult, la
     appointment.voiceConversation.step = "WAITING_FOR_TIME";
     await appointment.save();
 
-    addSpeechGather(response, appointmentId, appointment, text.askTime);
+    addSpeechGather(response, appointmentId, appointment, text.askTime, req);
     sayWithVoice(response, text.goodbye, language);
     response.hangup();
     res.type("text/xml");
@@ -401,14 +385,14 @@ async function handleRescheduleDate(res, response, appointment, speechResult, la
 // =====================================================
 // RESCHEDULE TIME HANDLER
 // =====================================================
-async function handleRescheduleTime(res, response, appointment, speechResult, language, text) {
+async function handleRescheduleTime(req, res, response, appointment, speechResult, language, text) {
   const appointmentId = appointment._id.toString();
   try {
     const { time } = await extractRescheduleTime(speechResult);
     console.log("Extracted reschedule time:", time);
 
     if (!time || !TIME_SLOTS.includes(time)) {
-      addSpeechGather(response, appointmentId, appointment, text.invalidTime);
+      addSpeechGather(response, appointmentId, appointment, text.invalidTime, req);
       sayWithVoice(response, text.goodbye, language);
       response.hangup();
       res.type("text/xml");
@@ -434,7 +418,7 @@ async function handleRescheduleTime(res, response, appointment, speechResult, la
     });
 
     if (conflict) {
-      addSpeechGather(response, appointmentId, appointment, text.unavailableTime);
+      addSpeechGather(response, appointmentId, appointment, text.unavailableTime, req);
       sayWithVoice(response, text.goodbye, language);
       response.hangup();
       res.type("text/xml");
